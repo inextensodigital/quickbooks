@@ -9,12 +9,24 @@ use ActiveCollab\Quickbooks\Data\ConnectionResponse;
 use League\OAuth1\Client\Credentials\TokenCredentials;
 use League\OAuth1\Client\Credentials\CredentialsException;
 use League\OAuth1\Client\Credentials\CredentialsInterface;
+use League\OAuth1\Client\Credentials\TemporaryCredentials;
 
+/**
+ * This class reflects a QuickBooks oddity :
+ *  QuickBooks expects the oauth_verifier to be located in the header instead of the post body.
+ */
 class Quickbooks extends Server
 {
     /**
+     * oauth_verifier stored for use with.
+     *
+     * @var string
+     */
+    private $verifier;
+
+    /**
      * Return temporary credentials url.
-     * 
+     *
      * @return string
      */
     public function urlTemporaryCredentials()
@@ -24,7 +36,7 @@ class Quickbooks extends Server
 
     /**
      * Return authorization url.
-     * 
+     *
      * @return string
      */
     public function urlAuthorization()
@@ -34,7 +46,7 @@ class Quickbooks extends Server
 
     /**
      * Return token credentials url.
-     * 
+     *
      * @return string
      */
     public function urlTokenCredentials()
@@ -44,7 +56,7 @@ class Quickbooks extends Server
 
     /**
      * Return user details url.
-     * 
+     *
      * @return string
      */
     public function urlUserDetails()
@@ -54,7 +66,7 @@ class Quickbooks extends Server
 
     /**
      * Return connection url.
-     * 
+     *
      * @return string
      */
     public function urlConnection()
@@ -64,7 +76,7 @@ class Quickbooks extends Server
 
     /**
      * Return user details.
-     * 
+     *
      * @param  array            $data
      * @param  TokenCredentials $tokenCredentials
      * @return User
@@ -87,7 +99,7 @@ class Quickbooks extends Server
 
     /**
      * Return user uid.
-     * 
+     *
      * @param array            $data
      * @param TokenCredentials $tokenCredentials
      */
@@ -98,7 +110,7 @@ class Quickbooks extends Server
 
     /**
      * Return user email.
-     * 
+     *
      * @param  array            $data
      * @param  TokenCredentials $tokenCredentials
      * @return string
@@ -110,7 +122,7 @@ class Quickbooks extends Server
 
     /**
      * Retrun user screen name.
-     * 
+     *
      * @param array            $data
      * @param TokenCredentials $tokenCredentials
      */
@@ -121,7 +133,7 @@ class Quickbooks extends Server
 
     /**
      * Return headers.
-     * 
+     *
      * @param  CredentialsInterface $credentials
      * @param  string               $method
      * @param  string               $url
@@ -140,7 +152,7 @@ class Quickbooks extends Server
 
     /**
      * Reconnect and return new access tokens.
-     * 
+     *
      * @param  tokenCredentials     $tokenCredentials
      * @return ConnectionResponse
      */
@@ -162,7 +174,7 @@ class Quickbooks extends Server
 
     /**
      * Send connection request.
-     * 
+     *
      * @param  TokenCredentials     $tokenCredentials
      * @param  string               $action
      * @return ConnectionResponse
@@ -181,5 +193,24 @@ class Quickbooks extends Server
         }
 
         return new ConnectionResponse($response);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getTokenCredentials(TemporaryCredentials $temporaryCredentials, $temporaryIdentifier, $verifier)
+    {
+        $this->verifier = $verifier;
+        return parent::getTokenCredentials($temporaryCredentials, $temporaryIdentifier, $verifier);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    protected function additionalProtocolParameters()
+    {
+        return array(
+            'oauth_verifier' => $this->verifier,
+        );
     }
 }
