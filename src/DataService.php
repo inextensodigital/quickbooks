@@ -9,6 +9,7 @@ use ActiveCollab\Quickbooks\Quickbooks;
 use DateTime;
 use Guzzle\Http\Exception\BadResponseException;
 use Guzzle\Service\Client as GuzzleClient;
+use InvalidArgumentException;
 use League\OAuth1\Client\Credentials\ClientCredentials;
 use League\OAuth1\Client\Credentials\TokenCredentials;
 
@@ -202,16 +203,23 @@ class DataService
     /**
      * Send query request
      *
-     * @param  string|null      $query
+     * @param string|null $query
+     * @param int|null $minorVersion
+     *
      * @return QueryResponse
      */
-    public function query($query = null)
+    public function query($query = null, $minorVersion = null)
     {
         if ($query === null) {
             $query = "select * from {$this->entity}";
         }
 
         $uri = $this->getRequestUrl('query') . '?query=' . urlencode($query);
+
+        if ($minorVersion !== null) {
+            $this->validateMinorVersion($minorVersion);
+            $uri .= '&minorversion=' . $minorVersion;
+        }
 
         $response = $this->request('GET', $uri);
 
@@ -325,5 +333,22 @@ class DataService
             $errors = $body['Fault']['Error'];
         }
         return new FaultException("Fault response", 0, null, $errors);
+    }
+
+    /**
+     * Validates the type for $minorVersion
+     *
+     * @param int $minorVersion
+     *
+     * @return self
+     *
+     * @throws InvalidArgumentException
+     */
+    private function validateMinorVersion($minorVersion)
+    {
+        if (!is_int($minorVersion)) {
+            throw new InvalidArgumentException(sprintf('Invalid type for "$minorVersion" : expected "int", got "%s".', gettype($minorVersion)));
+        }
+        return $this;
     }
 }
