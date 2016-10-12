@@ -133,13 +133,31 @@ class DataService
     }
 
     /**
+     * @return string
+     */
+    protected function getBaseUrl()
+    {
+        return $this->getApiUrl() . '/company/' . $this->realmId .  '/';
+    }
+
+    /**
+     * Return entity $path
+     *
+     * @return string
+     */
+    public function getRequestUrl($path)
+    {
+        return $this->getBaseUrl() . $path;
+    }
+
+    /**
      * Return entity url
      *
      * @return string
      */
-    public function getRequestUrl($slug)
+    public function getEntityRequestUrl($slug)
     {
-        return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . strtolower($slug);
+        return $this->getBaseUrl() . strtolower($slug);
     }
 
     /**
@@ -150,7 +168,7 @@ class DataService
      */
     public function create(array $payload)
     {
-        $response = $this->request('POST', $this->getRequestUrl($this->entity), $payload);
+        $response = $this->request('POST', $this->getEntityRequestUrl($this->entity), $payload);
 
         return new Entity($response[$this->entity]);
     }
@@ -163,7 +181,7 @@ class DataService
      */
     public function read($id)
     {
-        $uri = $this->getRequestUrl($this->entity) . '/' . $id;
+        $uri = $this->getEntityRequestUrl($this->entity) . '/' . $id;
 
         $response = $this->request('GET', $uri);
 
@@ -178,7 +196,7 @@ class DataService
      */
     public function update(array $payload)
     {
-        $uri = $this->getRequestUrl($this->entity) . '?operation=update';
+        $uri = $this->getEntityRequestUrl($this->entity) . '?operation=update';
 
         $response = $this->request('POST', $uri, $payload);
 
@@ -193,7 +211,7 @@ class DataService
      */
     public function delete(array $payload)
     {
-        $uri = $this->getRequestUrl($this->entity) . '?operation=delete';
+        $uri = $this->getEntityRequestUrl($this->entity) . '?operation=delete';
 
         $this->request('POST', $uri, $payload);
 
@@ -214,7 +232,7 @@ class DataService
             $query = "select * from {$this->entity}";
         }
 
-        $uri = $this->getRequestUrl('query') . '?query=' . urlencode($query);
+        $uri = $this->getEntityRequestUrl('query') . '?query=' . urlencode($query);
 
         if ($minorVersion !== null) {
             $this->validateMinorVersion($minorVersion);
@@ -237,7 +255,7 @@ class DataService
     {
         $entities_value = urlencode(implode(',', $entities));
         $changed_since_value = urlencode(date_format($changed_since, DateTime::ATOM));
-        $uri = $this->getRequestUrl('cdc') . '?entities=' . $entities_value . '&changedSince=' . $changed_since_value;
+        $uri = $this->getEntityRequestUrl('cdc') . '?entities=' . $entities_value . '&changedSince=' . $changed_since_value;
 
         $response = $this->request('GET', $uri);
 
@@ -289,7 +307,7 @@ class DataService
      *
      * @param  string $method
      * @param  string $uri
-     * @param  string|array      $body
+     * @param  string|array $body
      * @return array
      * @throws \Exception
      */
