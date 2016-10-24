@@ -139,7 +139,7 @@ class DataService
      */
     public function getRequestUrl($slug)
     {
-        return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . strtolower($slug);
+        return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . $slug;
     }
 
     /**
@@ -150,7 +150,7 @@ class DataService
      */
     public function create(array $payload)
     {
-        $response = $this->request('POST', $this->getRequestUrl($this->entity), $payload);
+        $response = $this->request('POST', $this->getRequestUrl(strtolower($this->entity)), $payload);
 
         return new Entity($response[$this->entity]);
     }
@@ -163,7 +163,7 @@ class DataService
      */
     public function read($id)
     {
-        $uri = $this->getRequestUrl($this->entity) . '/' . $id;
+        $uri = $this->getRequestUrl(strtolower($this->entity)) . '/' . $id;
 
         $response = $this->request('GET', $uri);
 
@@ -178,7 +178,7 @@ class DataService
      */
     public function update(array $payload)
     {
-        $uri = $this->getRequestUrl($this->entity) . '?operation=update';
+        $uri = $this->getRequestUrl(strtolower($this->entity)) . '?operation=update';
 
         $response = $this->request('POST', $uri, $payload);
 
@@ -193,7 +193,7 @@ class DataService
      */
     public function delete(array $payload)
     {
-        $uri = $this->getRequestUrl($this->entity) . '?operation=delete';
+        $uri = $this->getRequestUrl(strtolower($this->entity)) . '?operation=delete';
 
         $this->request('POST', $uri, $payload);
 
