@@ -383,8 +383,16 @@ class DataService
             'Content-Type' => 'multipart/form-data; boundary='.$boundary,
         ];
         $response = $this->request('POST', $this->getRequestUrl('upload'), $body, $headers);
+        
+        if (!isset($response['AttachableResponse'])) {
+            throw new \UnexpectedValueException('The QuickBooks response should contain an "AttachableResponse" node');
+        }
 
         $response = reset($response['AttachableResponse']);
+        
+        if (false === $response) {
+            throw new \UnexpectedValueException('The QuickBooks AttachableResponse is empty');
+        }
 
         if (isset($response['Fault'])) {
             throw $this->createFaultException($response);
