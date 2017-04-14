@@ -309,7 +309,7 @@ class DataService
 
             $body = $response->json();
             if (isset($body['Fault'])) {
-                throw $this->createFaultException($body);
+                throw $this->createFaultException($body, $e);
             }
 
             $body = $response;
@@ -338,15 +338,16 @@ class DataService
 
     /**
      * @param array $body
+     * @param \Exception $previous
      *
      * @return FaultException
      */
-    private function createFaultException(array $body)
+    private function createFaultException(array $body, \Exception $previous)
     {
         $errors = [];
         if (isset($body['Fault']['Error'])) {
             $errors = $body['Fault']['Error'];
         }
-        return new FaultException("Fault response", 0, null, $errors);
+        return new FaultException(sprintf("Fault response : %s", json_encode($errors)), 0, $previous, $errors);
     }
 }
