@@ -5,7 +5,10 @@ namespace ActiveCollab\Quickbooks;
 use ActiveCollab\Quickbooks\Data\Entity;
 use ActiveCollab\Quickbooks\Data\QueryResponse;
 use ActiveCollab\Quickbooks\Exception\FaultException;
+use ActiveCollab\Quickbooks\Quickbooks;
 use DateTime;
+use Guzzle\Http\Exception\BadResponseException;
+use Guzzle\Service\Client as GuzzleClient;
 use Guzzle\Http\Exception\BadResponseException;
 use Guzzle\Service\Client as GuzzleClient;
 use League\OAuth1\Client\Credentials\ClientCredentials;
@@ -287,17 +290,20 @@ class DataService
      *
      * @param  string $method
      * @param  string $uri
-     * @param  string|array      $body
+     * @param  string|array $body
+     * @param array|null $headers
+     *
      * @return array
-     * @throws \Exception
+     *
+     * @throws \RuntimeException
      */
-    public function request($method, $uri, array $body = null)
+    public function request($method, $uri, $body = null, array $headers = [])
     {
         $client = $this->createHttpClient();
 
-        $headers = $this->getHeaders($method, $uri);
+        $headers += $this->getHeaders($method, $uri);
 
-        if ($body !== null) {
+        if ($body !== null && is_array($body)) {
             $body = json_encode($body);
         }
 
@@ -313,10 +319,55 @@ class DataService
             }
 
             $body = $response;
-            throw new \Exception(
+            throw new \RuntimeException(
                 "Received error [$body] with status code [$statusCode] when sending request."
             );
         }
+    }
+
+    /**
+     * @param string $fileName
+     * @param string $contentType
+     * @param string $content
+     *
+     * @return Entity
+     *
+     * @throws FaultException
+     */
+    public function upload($fileName, $contentType, $content)
+    {
+        $boundary = hash('sha256', uniqid('', true));
+        $body = "--$boundary\r\n"
+            . 'Content-Disposition: form-data; name="file_metadata_01"' . "\r\n"
+            . 'Content-Type: application/json; charset=UTF-8' . "\r\n"
+            . "--$boundary\r\n"
+            . 'Content-Disposition: form-data; name="file_content_01"; filename="' . $fileName . '"' . "\r\n"
+            . 'Content-Type: ' . $contentType . "\r\n"
+            . 'Content-Transfer-Encoding: base64' . "\r\n"
+            . "\r\n"
+            . chunk_split(base64_encode($content)) . "\r\n"
+            . "--$boundary--";
+
+        $headers = [
+            'Content-Type' => 'multipart/form-data; boundary='.$boundary,
+        ];
+        $response = $this->request('POST', $this->getRequestUrl('upload'), $body, $headers);
+        
+        if (!isset($response['AttachableResponse'])) {
+            throw new \UnexpectedValueException('The QuickBooks response should contain an "AttachableResponse" node');
+        }
+
+        $response = reset($response['AttachableResponse']);
+        
+        if (false === $response) {
+            throw new \UnexpectedValueException('The QuickBooks AttachableResponse is empty');
+        }
+
+        if (isset($response['Fault'])) {
+            throw $this->createFaultException($response);
+        }
+
+        return new Entity($response[$this->entity]);
     }
 
     /**
@@ -342,7 +393,7 @@ class DataService
      *
      * @return FaultException
      */
-    private function createFaultException(array $body, \Exception $previous)
+    private function createFaultException(array $body, \Exception $previous = null)
     {
         $errors = [];
         if (isset($body['Fault']['Error'])) {
