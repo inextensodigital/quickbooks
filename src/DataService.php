@@ -2,14 +2,14 @@
 
 namespace ActiveCollab\Quickbooks;
 
-use ActiveCollab\Quickbooks\Quickbooks;
 use ActiveCollab\Quickbooks\Data\Entity;
-use Guzzle\Service\Client as GuzzleClient;
 use ActiveCollab\Quickbooks\Data\QueryResponse;
-use Guzzle\Http\Exception\BadResponseException;
-use League\OAuth1\Client\Credentials\TokenCredentials;
-use League\OAuth1\Client\Credentials\ClientCredentials;
+use ActiveCollab\Quickbooks\Exception\FaultException;
 use DateTime;
+use Guzzle\Http\Exception\BadResponseException;
+use Guzzle\Service\Client as GuzzleClient;
+use League\OAuth1\Client\Credentials\ClientCredentials;
+use League\OAuth1\Client\Credentials\TokenCredentials;
 
 class DataService
 {
@@ -32,7 +32,7 @@ class DataService
 
     /**
      * Construct data service
-     * 
+     *
      * @param string $consumer_key
      * @param string $consumer_key_secret
      * @param string $access_token
@@ -46,11 +46,11 @@ class DataService
         $this->access_token = $access_token;
         $this->access_token_secret = $access_token_secret;
         $this->realmId = $realmId;
-    } 
+    }
 
     /**
      * Return api url
-     * 
+     *
      * @return string
      */
     public function getApiUrl()
@@ -60,7 +60,7 @@ class DataService
 
     /**
      * Return http client
-     * 
+     *
      * @return GuzzleClient
      */
     public function createHttpClient()
@@ -70,7 +70,7 @@ class DataService
 
     /**
      * Return oauth server
-     * 
+     *
      * @return Quickbooks
      */
     public function createServer()
@@ -84,7 +84,7 @@ class DataService
 
     /**
      * Return token credentials
-     * 
+     *
      * @return TokenCredentials
      */
     public function getTokenCredentials()
@@ -98,8 +98,10 @@ class DataService
 
     /**
      * Set user agent
-     * 
+     *
      * @param string|null $user_agent
+     *
+     * @return static
      */
     public function setUserAgent($user_agent = null)
     {
@@ -110,7 +112,7 @@ class DataService
 
     /**
      * Return user agent
-     * 
+     *
      * @return string
      */
     public function getUserAgent()
@@ -120,8 +122,10 @@ class DataService
 
     /**
      * Set entity
-     * 
+     *
      * @param string $entity
+     *
+     * @return static
      */
     public function setEntity($entity)
     {
@@ -132,7 +136,9 @@ class DataService
 
     /**
      * Return entity url
-     * 
+     *
+     * @param string $slug
+     *
      * @return string
      */
     public function getRequestUrl($slug)
@@ -142,7 +148,7 @@ class DataService
 
     /**
      * Send create request
-     * 
+     *
      * @param  array            $payload
      * @return Entity
      */
@@ -155,7 +161,7 @@ class DataService
 
     /**
      * Send read request
-     * 
+     *
      * @param  int              $id
      * @return Entity
      */
@@ -170,7 +176,7 @@ class DataService
 
     /**
      * Send update request
-     * 
+     *
      * @param  array            $payload
      * @return Entity
      */
@@ -185,7 +191,7 @@ class DataService
 
     /**
      * Send delete request
-     * 
+     *
      * @param  array            $payload
      * @return null
      */
@@ -200,7 +206,7 @@ class DataService
 
     /**
      * Send query request
-     * 
+     *
      * @param  string|null      $query
      * @return QueryResponse
      */
@@ -219,10 +225,13 @@ class DataService
 
     /**
      * Send CDC request
-     * 
-     * @param  array        $entities
-     * @param  DateTime     $changed_since
+     *
+     * @param  array $entities
+     * @param  DateTime $changed_since
+     *
      * @return array
+     *
+     * @throws \Exception
      */
     public function cdc(array $entities, DateTime $changed_since)
     {
@@ -254,12 +263,12 @@ class DataService
 
     /**
      * Return headers for request
-     * 
+     *
      * @param  string           $method
      * @param  string           $uri
      * @return array
      */
-    public function getHeaders($method, $uri) 
+    public function getHeaders($method, $uri)
     {
         $server = $this->createServer();
 
@@ -277,7 +286,7 @@ class DataService
 
     /**
      * Request
-     * 
+     *
      * @param  string $method
      * @param  string $uri
      * @param  string|array      $body
@@ -285,7 +294,7 @@ class DataService
      * @throws \Exception
      */
     public function request($method, $uri, array $body = null)
-    {   
+    {
         $client = $this->createHttpClient();
 
         $headers = $this->getHeaders($method, $uri);
@@ -298,13 +307,32 @@ class DataService
             return $client->createRequest($method, $uri, $headers, $body)->send()->json();
         } catch (BadResponseException $e) {
             $response = $e->getResponse();
-            $body = $response->getBody();
             $statusCode = $response->getStatusCode();
 
+            $body = $response->json();
+            if (isset($body['Fault'])) {
+                throw $this->createFaultException($body, $e);
+            }
+
+            $body = $response;
             throw new \Exception(
                 "Received error [$body] with status code [$statusCode] when sending request."
             );
         }
     }
 
+    /**
+     * @param array $body
+     * @param \Exception $previous
+     *
+     * @return FaultException
+     */
+    private function createFaultException(array $body, \Exception $previous = null)
+    {
+        $errors = [];
+        if (isset($body['Fault']['Error'])) {
+            $errors = $body['Fault']['Error'];
+        }
+        return new FaultException("Fault response : " . json_encode($errors), 0, $previous, $errors);
+    }
 }
