@@ -5,6 +5,7 @@ namespace ActiveCollab\Quickbooks;
 use ActiveCollab\Quickbooks\Data\Entity;
 use ActiveCollab\Quickbooks\Data\QueryResponse;
 use ActiveCollab\Quickbooks\Exception\FaultException;
+use ActiveCollab\Quickbooks\Exception\UnauthorizedException;
 use DateTime;
 use Guzzle\Http\Exception\BadResponseException;
 use Guzzle\Service\Client as GuzzleClient;
@@ -363,6 +364,10 @@ class DataService
         } catch (BadResponseException $e) {
             $response = $e->getResponse();
             $statusCode = $response->getStatusCode();
+
+            if (401 === $statusCode) {
+                throw new UnauthorizedException($e->getResponse()->getBody(), null, $e);
+            }
 
             $body = $response->json();
             if (isset($body['Fault'])) {
