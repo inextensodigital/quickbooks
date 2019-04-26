@@ -5,6 +5,7 @@ namespace ActiveCollab\Quickbooks;
 use ActiveCollab\Quickbooks\Data\Entity;
 use ActiveCollab\Quickbooks\Data\QueryResponse;
 use ActiveCollab\Quickbooks\Exception\FaultException;
+use ActiveCollab\Quickbooks\Exception\UnauthorizedException;
 use DateTime;
 use Guzzle\Http\Exception\BadResponseException;
 use Guzzle\Service\Client as GuzzleClient;
@@ -143,7 +144,11 @@ class DataService
      */
     public function getRequestUrl($slug)
     {
-        return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . strtolower($slug);
+        $mySlug = $slug;
+        if (false === strpos($slug, '/reports/')) {
+            $mySlug = strtolower($slug);
+        }
+        return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . $mySlug;
     }
 
     /**
@@ -296,7 +301,15 @@ class DataService
         ];
         $response = $this->request('POST', $this->getRequestUrl('upload'), $body, $headers);
 
+        if (!isset($response['AttachableResponse'])) {
+            throw new \UnexpectedValueException('The QuickBooks response should contain an "AttachableResponse" node');
+        }
+
         $response = reset($response['AttachableResponse']);
+
+        if (false === $response) {
+            throw new \UnexpectedValueException('The QuickBooks AttachableResponse is empty');
+        }
 
         if (isset($response['Fault'])) {
             throw $this->createFaultException($response);
@@ -355,6 +368,10 @@ class DataService
         } catch (BadResponseException $e) {
             $response = $e->getResponse();
             $statusCode = $response->getStatusCode();
+
+            if (401 === $statusCode) {
+                throw new UnauthorizedException($e->getResponse()->getBody(), null, $e);
+            }
 
             $body = $response->json();
             if (isset($body['Fault'])) {
