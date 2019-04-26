@@ -145,7 +145,7 @@ class DataService
     public function getRequestUrl($slug)
     {
         $mySlug = $slug;
-        if (false === strpos($slug, '/reports/')) {
+        if (false === strpos($slug, 'reports/')) {
             $mySlug = strtolower($slug);
         }
         return $this->getApiUrl() . '/company/' . $this->realmId .  '/' . $mySlug;
